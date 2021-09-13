@@ -1,6 +1,8 @@
 import os
 import discord
 import random
+import json
+import datetime
 from replit import db
 from keep_alive import keep_alive
 from game import game
@@ -16,29 +18,31 @@ greetings = ["Hey there", "Greetings", "Konnichiwa", "What's up", "Hello", "Hey"
 help_message = """!hello, !hi, !hey ------- Simple greeting
 !add [game] --------- Add a game to the pool
 !remove [game] ----- Remove a game from the pool
+!played [game] ------ Mark a game as played
+!unplayed [game] --- Mark a game as unplayed
+!remind [game] ----- Show this week's game
 !list ------------------- Display all games in the pool"""
 
 ########################################################################
 ######################### F U N C T I O N S ############################
 ########################################################################
 def add_game(title):
-  new_game = title        # create game object
-
-  if key in db.keys():          # if database exists
-    game_list = db[key]         # read database
-    game_list.append(new_game)  # add game object to list
-    db[key] = game_list         # save to database
+  newGame = game(title, False, None)        # create game object
+  jsonStr = json.dumps(newGame.__dict__)    # convert to json
+  if key in db.keys():              # if database exists
+    game_list = db[key]             # read database
+    game_list.insert(0, jsonStr)    # add game object to list
+    db[key] = game_list             # save to database
   else:
-    db[key] = [new_game]        # create database with given argument
+    db[key] = [jsonStr]        # create database with object
 
 def get_index(title):
-  games = db[key]
-  length = len(games)
-  i = 0
-  while i < length:
-    if title.lower() == games[i].lower():
+  data = db[key]
+  for i in range(len(data)):
+    game = json.loads(data[i])
+    if title.lower() == game['title'].lower():
+      print(i)
       return i
-    i += 1
   # no matches were found
   return None
 
@@ -46,43 +50,60 @@ def remove_game(title):
   found = False
   index = get_index(title)
   if index != None:
-    games = db[key]
-    del games[index]
-    db[key] = games
+    data = db[key]
+    del data[index]
+    db[key] = data
     found = True
   return found
 
-def change_played_status(title, status = True):
+def change_played_status(title, status):
   found = False
   index = get_index(title)
-  if index:
-    db[key][index].played = status
+  
+  if index != None:
+    data = db[key]
+
+    # check if status is different
+    if json.loads(data[index])['played'] != status:
+      del data[index]
+
+      swap = game(title, status, get_date())  # create game object
+      jsonStr = json.dumps(swap.__dict__)     # convert to json format
+
+      if status == True:
+        data.append(jsonStr)                  # add to list end
+      else:
+        data.insert(0, jsonStr)               # add to list start
+      db[key] = data                          # save to database
+
     found = True
+
   return found
 
-def get_list(_list):
-  list_string = ""
-  # Check for existence
-  if _list in db.keys():
-    L = db[_list]
-    length = len(L)
-
-    # Construct grammatically correct list
-    if length > 0:
-      # First element
-      list_string += L[0]
-      # Subsequent elements
-      if length > 1:
-        i = 1
-        while i < length:
-          list_string += ", " + L[i]
-          i += 1
-    else:
-      list_string = ":face_with_raised_eyebrow: Looks like the game pool is empty!"
-  # No such list found
+def get_list():
+  # Construct line-by-line list
+  data = db[key]
+  if len(data) > 0:
+    listString = ""
+    for i in data:
+      game = json.loads(i)
+      listString += game['title'] 
+      if game['played']:
+        listString += " ( Completed: {} )".format(game['dateFinished'])
+      listString += "\n"
+    return listString
   else:
-    list_string = _list + " list not found."
-  return list_string
+    return ":face_with_raised_eyebrow: Looks like the game pool is empty!"
+
+def get_date():
+  x = datetime.datetime.now()
+  return x.strftime("%a, %x")
+
+def get_current_week():
+  start = datetime.date(2021, 8, 25)
+  today = datetime.date.today()
+  delta = (today - start).days
+  return int(delta / 7)
 
 ########################################################################
 #################### D I S C O R D   E V E N T S #######################
@@ -105,7 +126,6 @@ async def on_message(message):
     await message.channel.send(random.choice(greetings) + ", " + name + "!")
     await message.channel.send("Type !help to see what I can do you for!")
 
-
   if msg.startswith('!add '):
     title = msg.split("!add ",1)[1]
     if not title.isspace():
@@ -113,21 +133,40 @@ async def on_message(message):
       await message.channel.send("I added " + title + " to game pool.")
     else:
       await message.channel.send("I don't think [spaces] is a game.")
-  
 
   if msg.startswith('!remove '):
     if key in db.keys():
       title = msg.split("!remove ",1)[1]
-      if remove_game(title) == True:
+      if remove_game(title):
         await message.channel.send("I removed " + title + " from game pool.")
       else:
         await message.channel.send("I couldn't find " + title + " in the game pool.")
+
+  if msg.startswith('!played '):
+    if key in db.keys():
+      title = msg.split("!played ",1)[1]
+      if change_played_status(title, True):
+        await message.channel.send("I marked " + title + " as played.")
+      else:
+        await message.channel.send("I couldn't find " + title + " in the game pool.")
+
+  if msg.startswith('!unplayed '):
+    if key in db.keys():
+      title = msg.split("!unplayed ",1)[1]
+      if change_played_status(title, False):
+        await message.channel.send("I marked " + title + " as unplayed.")
+      else:
+        await message.channel.send("I couldn't find " + title + " in the game pool.")
+  
+  if msg.startswith ('!remind'):
+    await message.channel.send("Week {}: ".format(get_current_week())) ## FIXME: include game
   
   if msg.startswith('!list'):
-    await message.channel.send(get_list(key))
-
+    await message.channel.send(get_list())
+  
   if msg.startswith ('!help'):
     await message.channel.send(help_message)
 
+  
 keep_alive()
 client.run(token)
