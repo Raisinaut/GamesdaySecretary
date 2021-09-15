@@ -1,170 +1,146 @@
 import os
 import discord
 import random
-import json
-import datetime
+import data_manager
 from replit import db
 from keep_alive import keep_alive
-from game import game
+from discord_components import ComponentsBot, Button, Select, SelectOption, ButtonStyle
 
-client = discord.Client()
+selected_game = None # used when modifying a game from selection menu
+
 token = os.environ['TOKEN']
+bot = ComponentsBot(command_prefix = "!")
 
-## DATABASE VARIABLES ##
-key = "games" # name of destination database 
-
-## BOT VARIABLES ##
 greetings = ["Hey there", "Greetings", "Konnichiwa", "What's up", "Hello", "Hey"]
-help_message = """!hello, !hi, !hey ------- Simple greeting
+help_message = """Commands:
+!hello, !hi, !hey ------- Simple greeting
 !add [game] --------- Add a game to the pool
-!remove [game] ----- Remove a game from the pool
-!played [game] ------ Mark a game as played
-!unplayed [game] --- Mark a game as unplayed
-!remind [game] ----- Show this week's game
+!modify -------------- Remove a game or change its played status 
+!remind -------------- Show this week's game
 !list ------------------- Display all games in the pool"""
 
-########################################################################
-######################### F U N C T I O N S ############################
-########################################################################
-def add_game(title):
-  newGame = game(title, False, None)        # create game object
-  jsonStr = json.dumps(newGame.__dict__)    # convert to json
-  if key in db.keys():                        # if database exists
-    game_list = db[key]                       # read database
-    game_list.insert(0, jsonStr)              # add game object to list
-    db[key] = game_list                       # save to database
-  else:
-    db[key] = [jsonStr]        # create database with object
 
-def get_index(title):
-  data = db[key]
-  for i in range(len(data)):
-    game = json.loads(data[i])
-    if title.lower() == game['title'].lower():
-      return i
-  
-  # no matches were found
-  return None
-
-def remove_game(title):
-  found = False
-  index = get_index(title)
-  if index != None:
-    data = db[key]          # copy database
-    del data[index]         # remove game
-    db[key] = data          # save to databse
-    found = True
-  return found
-
-def change_played_status(title, status):
-  found = False
-  index = get_index(title)
-  
-  if index != None:
-    data = db[key]      # copy database
-
-    # check if status is different
-    if json.loads(data[index])['played'] != status:
-      del data[index]
-
-      swap = game(title, status, get_date())  # create game object
-      jsonStr = json.dumps(swap.__dict__)     # convert to json format
-
-      if status == True:
-        data.append(jsonStr)                  # add to list end
-      else:
-        data.insert(0, jsonStr)               # add to list start
-
-      db[key] = data                          # save to database
-    found = True
-
-  return found
-
-def get_list():
-  data = db[key]
-  if len(data) > 0:
-    listString = ""
-    # Construct line-by-line list
-    for i in data:
-      game = json.loads(i)
-      listString += game['title'] 
-      if game['played']:
-        # include date finished
-        listString += " (Completed: {})".format(game['dateFinished'])
-      listString += "\n"
-    return listString
-  else:
-    return ":face_with_raised_eyebrow: Looks like the game pool is empty!"
-
-def get_date():
-  t = datetime.datetime.now()
-  return t.strftime("%a, %x")
-
-def get_current_week():
-  start = datetime.date(2021, 8, 25)
-  today = datetime.date.today()
-  delta = (today - start).days
-  return int(delta / 7)
 
 ########################################################################
-#################### D I S C O R D   E V E N T S #######################
+########################## B O T   E V E N T S #########################
 ########################################################################
-@client.event
+
+@bot.event
 async def on_ready():
-  print('Bot logged in as {0.user}'.format(client))
+    print(f"Logged in as {bot.user}!")
 
-@client.event
-async def on_message(message):
-  # Exit if message was from self
-  if message.author == client.user:
+@bot.event
+async def on_button_click(interaction):
+  global selected_game
+  btn = interaction.custom_id
+
+  if selected_game != None:
+    print(f"Modified {selected_game}")
+    if btn == "played_button":
+      data_manager.change_played_status(selected_game, True)
+      await interaction.respond(content = "I've marked " + selected_game + " as played.")
+
+    if btn == "unplayed_button":
+      data_manager.change_played_status(selected_game, False)
+      await interaction.respond(content = "I marked " + selected_game + " as unplayed.")
+
+    if btn == "remove_button":
+      data_manager.remove_game(selected_game)
+      await interaction.respond(content = "I've removed " + selected_game + " from game pool.")
+      await interaction.channel.send(data_manager.get_list_string())
+
+    selected_game = None
+
+  else:
+    await interaction.respond(content = "Select a game first.")
+
+@bot.event
+async def on_select_option(interaction):
+  global selected_game
+  selected_game = interaction.values[0]
+  print(f"Selected {selected_game}")
+  await interaction.respond(content = " ")
+  #await interaction.respond(content=f"{selected_game} selected.", )
+
+
+########################################################################
+######################## B O T   C O M M A N D S #######################
+########################################################################
+
+@bot.command()
+async def actions(ctx):
+  await ctx.channel.send(help_message)
+
+@bot.command()
+async def hello(ctx):
+  name = str(ctx.author).split("#")[0]
+  await ctx.channel.send(random.choice(greetings) + " " + name + "!")
+  await ctx.channel.send("Type !actions to see what I can do you for!")
+
+@bot.command()
+async def add(ctx):
+  title = ctx.message.content.split("!add ",1)[1]
+  if not title.isspace():
+    data_manager.add_game(title)
+    await ctx.channel.send(f"I've added {title} to the game pool.")
+  else:
+    await ctx.channel.send("Um, [spaces] isn't a game.")
+
+@bot.command()
+async def remind(ctx):
+  await ctx.channel.send("Week {}: ".format(data_manager.get_current_week()))
+
+@bot.command()
+async def list(ctx):
+  await ctx.channel.send(data_manager.get_list_string())
+
+@bot.command()
+async def modify(ctx):
+  # Reset selected game to None
+  global selected_game
+  selected_game = None
+
+  game_list = data_manager.get_list([db["games"]])
+
+  # Exit if list is empty
+  if len(game_list) == 0:
+    await ctx.send("There are no games to modify.")
     return
   
-  msg = message.content
-  
-  # Basic greeting responses
-  if msg.startswith('!hello') or msg.startswith('!hi') or msg.startswith('!hey'):
-    name = str(message.author).split("#")[0]
-    await message.channel.send(random.choice(greetings) + ", " + name + "!")
-    await message.channel.send("Type !help to see what I can do you for!")
+  # Construct list of options
+  option_list = []
+  for i in game_list:
+    option_list.append(SelectOption(label = i, value = i))
 
-  if msg.startswith('!add '):
-    title = msg.split("!add ",1)[1]
-    if not title.isspace():
-      add_game(title)
-      await message.channel.send("I added " + title + " to game pool.")
-    else:
-      await message.channel.send("I don't think [spaces] is a game.")
+  await ctx.send(
+    "Select a game to modify",
+    components = [
+      # Row 1
+      Select(
+        placeholder ="Select a game",
+        options = option_list,
+        custom_id = "select"
+      ),
+      # Row 2
+      [
+        Button(
+          label = "Mark played",
+          style = 3,
+          custom_id = "played_button",
+        ),
+        Button(
+          label = "Mark unplayed",
+          style = 1,
+          custom_id = "unplayed_button",
+        ),
+        Button(
+          label = "Remove",
+          style = 4,
+          custom_id = "remove_button",
+        )
+      ],
+    ],
+  )
 
-  if msg.startswith('!remove '):
-    title = msg.split("!remove ",1)[1]
-    if remove_game(title):
-      await message.channel.send("I removed " + title + " from game pool.")
-    else:
-      await message.channel.send("I couldn't find " + title + " in the game pool.")
-
-  if msg.startswith('!played '):
-    title = msg.split("!played ",1)[1]
-    if change_played_status(title, True):
-      await message.channel.send("I marked " + title + " as played.")
-    else:
-      await message.channel.send("I couldn't find " + title + " in the game pool.")
-
-  if msg.startswith('!unplayed '):
-    title = msg.split("!unplayed ",1)[1]
-    if change_played_status(title, False):
-      await message.channel.send("I marked " + title + " as unplayed.")
-    else:
-      await message.channel.send("I couldn't find " + title + " in the game pool.")
-  
-  if msg.startswith ('!remind'):
-    await message.channel.send("Week {}: ".format(get_current_week())) ## FIXME: include game
-  
-  if msg.startswith('!list'):
-    await message.channel.send(get_list())
-  
-  if msg.startswith ('!help'):
-    await message.channel.send(help_message)
-
-  
 keep_alive()
-client.run(token)
+bot.run(token)
