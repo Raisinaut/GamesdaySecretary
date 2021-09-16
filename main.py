@@ -12,7 +12,7 @@ modify_message_id = None # used to delete old message for refresh
 token = os.environ['TOKEN']
 bot = ComponentsBot(command_prefix = "!")
 
-greetings = ["Hey there", "Greetings", "Konnichiwa", "What's up", "Hello", "Hey"]
+greetings = ["Hey there", "Greetings", "Konnichiwa", "What's up", "Hello", "Hey", "Hi"]
 help_message = """Commands:
 !hello, !hi, !hey ------- Simple greeting
 !add [game] --------- Add a game to the pool
@@ -81,17 +81,17 @@ async def on_select_option(interaction):
 ######################## B O T   C O M M A N D S #######################
 ########################################################################
 
-@bot.command()
-async def actions(ctx):
-  await ctx.channel.send(help_message)
+#@bot.command()
+#async def actions(ctx):
+#  await ctx.channel.send(help_message)
 
-@bot.command()
+@bot.command(description = "Basic greeting")
 async def hello(ctx):
   name = str(ctx.author).split("#")[0]
   await ctx.channel.send(random.choice(greetings) + " " + name + "!")
   await ctx.channel.send("Type !actions to see what I can do you for!")
 
-@bot.command()
+@bot.command(description = "Adds a specified game to the pool")
 async def add(ctx):
   title = ctx.message.content.split("!add ",1)[1]
   if not title.isspace():
@@ -100,11 +100,16 @@ async def add(ctx):
   else:
     await ctx.channel.send("Um, [spaces] isn't a game.")
 
-@bot.command()
+@bot.command(description = "Reminds you of this week's game")
 async def remind(ctx):
-  await ctx.channel.send("Week {}: ".format(data_manager.get_current_week()))
+  embed = discord.Embed(
+    title = "Week {}".format(data_manager.get_current_week()),
+    description = data_manager.get_weekly_game(),
+    color = discord.Color.blue()
+  )
+  await ctx.send(embed=embed)
 
-@bot.command()
+@bot.command(description = "Lists all games in the pool")
 async def list(ctx):
   embed = discord.Embed(
     title = "Game Pool :video_game:",
@@ -114,6 +119,12 @@ async def list(ctx):
   if len(data_manager.get_list([db["games"]])) == 0:
     embed.set_thumbnail(url = "https://c.tenor.com/qx2ywkzWiV0AAAAd/marc-rebillet-rebillet.gif")
   await ctx.send(embed=embed)
+
+@bot.command()
+async def set(ctx):
+  title = ctx.message.content.split("!set ",1)[1]
+  data_manager.set_weekly_game(title)
+  await ctx.channel.send("This week's game set to {}".format(db["Weekly Game"]))
 
 @bot.command()
 async def modify(ctx):

@@ -44,7 +44,6 @@ def remove_game(title):
     found = True
   return found
 
-
 # Replaces a game with a copy, marked as played
 # Does nothing if status is identical
 def change_played_status(title, status):
@@ -71,7 +70,6 @@ def change_played_status(title, status):
 
   return found
 
-
 # Returns an array of titles
 def get_list(lists = []):
   games = []
@@ -97,6 +95,11 @@ def get_list_string():
     return listString
   else:
     return ":face_with_raised_eyebrow: Looks like the game pool is empty!"
+
+def get_weekly_game():
+  return db["Weekly Game"]
+def set_weekly_game(title: str):
+  db["Weekly_Game"] = title
 
 def get_date():
   t = datetime.datetime.now()
