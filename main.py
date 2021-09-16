@@ -12,6 +12,8 @@ modify_message_id = None # used to delete old message for refresh
 token = os.environ['TOKEN']
 bot = ComponentsBot(command_prefix = "!")
 
+bot.remove_command('help')
+
 greetings = ["Hey there", "Greetings", "Konnichiwa", "What's up", "Hello", "Hey", "Hi"]
 help_message = """Commands:
 !hello, !hi, !hey ------- Simple greeting
@@ -41,29 +43,34 @@ async def on_button_click(interaction):
     last_modify_msg = await interaction.channel.fetch_message(modify_message_id)
     await last_modify_msg.delete()
     modify_message_id = None
+
   # Options that require selection
   elif selected_game != None:
     print(f"Modified {selected_game}")
     if btn == "played_button":
-      data_manager.change_played_status(selected_game, True)
-      await interaction.respond(content = "I've marked " + selected_game + " as played.")
+      if data_manager.change_played_status(selected_game, True):
+        await interaction.respond(content = "I've marked " + selected_game + " as played.")
+      else:
+        await interaction.respond(content = "That game is no longer in the pool.")
 
     if btn == "unplayed_button":
-      data_manager.change_played_status(selected_game, False)
-      await interaction.respond(content = "I marked " + selected_game + " as unplayed.")
+      if data_manager.change_played_status(selected_game, False):
+        await interaction.respond(content = "I marked " + selected_game + " as unplayed.")
+      else:
+        await interaction.respond(content = "That game is no longer in the pool.")
 
     if btn == "remove_button":
-      data_manager.remove_game(selected_game)
-      await interaction.respond(content = "I've removed " + selected_game + " from game pool.")
-      # show updated pool
-      embed = discord.Embed(
-        title = "Remaining Games :video_game:",
-        description = data_manager.get_list_string(),
-        color = discord.Color.blue()
-      )
-      await interaction.channel.send(embed=embed)
-
-    selected_game = None
+      if data_manager.remove_game(selected_game):
+        await interaction.channel.send(content = "I've removed " + selected_game + " from the game pool.")
+        # show updated pool
+        embed = discord.Embed(
+          title = "Remaining Games :video_game:",
+          description = data_manager.get_list_string(),
+          color = discord.Color.blue()
+        )
+        await interaction.channel.send(embed=embed)
+      else:
+        await interaction.respond(content = "That game was already deleted.")
 
   else:
     await interaction.respond(content = "Select a game first.")
@@ -136,6 +143,7 @@ async def modify(ctx):
 
   game_list = data_manager.get_list([db["games"]])
 
+  # If there is another modify message, delete it first
   if modify_message_id != None:
     last_modify_msg = await ctx.channel.fetch_message(modify_message_id)
     await last_modify_msg.delete()
