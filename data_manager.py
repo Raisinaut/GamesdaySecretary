@@ -17,19 +17,20 @@ def add_game(title):
   newGame = game(title, False, None)        # create game object
   jsonStr = json.dumps(newGame.__dict__)    # convert to json
   if key in db.keys():                        # if database exists
-    game_list = db[key]                       # read database
-    game_list.insert(0, jsonStr)              # add game object to list
-    db[key] = game_list                       # save to database
+    games = db[key]                           # read database
+    games.insert(0, jsonStr)                  # add game object to list
+    db[key] = games                           # save to database
   else:
     db[key] = [jsonStr]        # create database with object
 
+# Returns the index of a given title, if found
 def get_index(title):
   data = db[key]
+  # search for match
   for i in range(len(data)):
     game = json.loads(data[i])
     if title.lower() == game['title'].lower():
       return i
-  
   # no matches were found
   return None
 
@@ -44,16 +45,16 @@ def remove_game(title):
     found = True
   return found
 
-# Replaces a game with a copy, marked as played
+# Replaces a game with a copy of a different 'played' status
 # Does nothing if status is identical
 def change_played_status(title, status):
   found = False
   index = get_index(title)
   
   if index != None:
-    data = db[key]      # copy database
+    data = db[key]  # copy database
 
-    # check if status is different
+    # If status is different
     if json.loads(data[index])['played'] != status:
       del data[index]                         # remove old game
 
@@ -61,23 +62,30 @@ def change_played_status(title, status):
       jsonStr = json.dumps(swap.__dict__)     # convert to json format
 
       if status == True:
-        data.append(jsonStr)                  # add to list end
+        data.append(jsonStr)                  # add replacement to list end
       else:
-        data.insert(0, jsonStr)               # add to list start
+        data.insert(0, jsonStr)               # add replacement to list start
 
       db[key] = data                          # save to database
     found = True
 
   return found
 
-# Returns an array of titles
-def get_list(lists = []):
-  games = []
-  for data in lists:
-    for i in data:
-      title = json.loads(i)['title']
-      games.append(title)
-  return games
+# Returns two lists of title (unplayed, played)
+def get_list():
+  data = db[key]
+  unplayed_games = []
+  played_games = []
+
+  # split data into two lists
+  for i in data:
+    game = json.loads(i)
+    if game['played'] == False:
+      unplayed_games.append(game['title'])
+    else:
+      played_games.append(game['title'])
+
+  return [unplayed_games, played_games]
 
 # Returns a string of all games
 def get_list_string():
@@ -96,15 +104,19 @@ def get_list_string():
   else:
     return ":face_with_raised_eyebrow: Looks like the game pool is empty!"
 
+# Returns the game of the week
 def get_weekly_game():
-  return db["Weekly Game"]
+  return db["Weekly_Game"]
+# Sets the game of the week
 def set_weekly_game(title: str):
   db["Weekly_Game"] = title
 
+# Returns a formatted date string
 def get_date():
   t = datetime.datetime.now()
   return t.strftime("%a, %x")
 
+# Returns number of weeks since the first week
 def get_current_week():
   start = datetime.date(2021, 8, 25)
   today = datetime.date.today()
