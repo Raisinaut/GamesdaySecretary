@@ -40,7 +40,10 @@ async def on_button_click(interaction):
   last_modify_msg = await interaction.channel.fetch_message(modify_message_id)
   btn = interaction.custom_id
   
-  if btn == "cancel_button":
+  if btn == "cure_button":
+    await interaction.respond(content = "Hm... That didn't work. Try pressing harder next time")
+
+  elif btn == "cancel_button":
     # delete last modify message
     await last_modify_msg.delete()
     # reset modify message id
@@ -187,7 +190,19 @@ async def modify(ctx):
           SelectOption(label = "Played", value = 1)
         ],
         custom_id = "status_select"
-      )
+      ),
+      [
+        Button(
+          label = "Cure cancer",
+          style = 3,
+          custom_id = "cure_button"
+        ),
+        Button(
+          label = "Cancel",
+          style = 2,
+          custom_id = "cancel_button"
+        )
+      ]
     ],
   )
   # Save message id for later deletion
@@ -201,7 +216,7 @@ async def modify(ctx):
 # Returns updated components for use in modify messages
 def construct_updated_components(status : int):
   game_select_state = False
-  
+
   # get list of games
   game_list = data_manager.get_list()[status]
 
