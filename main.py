@@ -12,8 +12,6 @@ modify_message_id = None # used to find modify message
 token = os.environ['TOKEN']
 bot = ComponentsBot(command_prefix = "!")
 
-bot.remove_command('help')
-
 greetings = ["Hey there", "Greetings", "Konnichiwa", "What's up", "Hello", "Hey", "Hi"]
 help_message = """Commands:
 !hello, !hi, !hey ------- Simple greeting
@@ -45,7 +43,7 @@ async def on_button_click(interaction):
   if btn == "cure_button":
     await interaction.respond(content = "Hm... That didn't work. Try pressing harder next time")
 
-  elif btn == "cancel_button":
+  elif btn == "done_button":
     # delete last modify message
     await last_modify_msg.delete()
     # reset modify message id
@@ -96,7 +94,6 @@ async def on_select_option(interaction):
     selected_game = interaction.values[0]
     print(f"Selected {selected_game}")
     
-
   elif select_type == "status_select":
     selected_status = int(interaction.values[0])
     # do not respond
@@ -116,17 +113,27 @@ async def on_select_option(interaction):
 ######################## B O T   C O M M A N D S #######################
 ########################################################################
 
+# discard default help command
+bot.remove_command('help')
+# define new help command
 @bot.command()
 async def help(ctx):
-  await ctx.channel.send(help_message)
+  h_embed = discord.Embed(title = "Commands", color = discord.Color.orange())
+  #h_embed.add_field(name = "hello", value = "A basic greeting.", inline = False)
+  h_embed.add_field(name = "add [game]", value = "Add a game to the pool.", inline = False)
+  h_embed.add_field(name = "modify", value = "Delete a game or change its played status.", inline = False)
+  h_embed.add_field(name = "list", value = "Display all games, played and unplayed.", inline = False)
+  h_embed.add_field(name = "remind", value = "Check what this week's game is.", inline = False)
+  #h_embed.add_field(name = "set [game]", value = "[TEMPORARY] Set this week's game.", inline = False)
+  await ctx.channel.send(embed = h_embed)
 
-@bot.command(description = "Basic greeting")
+@bot.command()
 async def hello(ctx):
   name = str(ctx.author).split("#")[0]
   await ctx.channel.send(random.choice(greetings) + " " + name + "!")
-  await ctx.channel.send("Type !actions to see what I can do you for!")
+  await ctx.channel.send("Type !help to see what I can do you for!")
 
-@bot.command(description = "Adds a specified game to the pool")
+@bot.command()
 async def add(ctx):
   title = ctx.message.content.split("!add ",1)[1]
   if not title.isspace():
@@ -137,7 +144,7 @@ async def add(ctx):
   else:
     await ctx.channel.send("Um, [spaces] isn't a game.")
 
-@bot.command(description = "Reminds you of this week's game")
+@bot.command()
 async def remind(ctx):
   embed = discord.Embed(
     title = "Week {}".format(data_manager.get_current_week()),
@@ -146,13 +153,14 @@ async def remind(ctx):
   )
   await ctx.send(embed=embed)
 
-@bot.command(description = "Lists all games in the pool")
+@bot.command()
 async def list(ctx):
   embed = discord.Embed(
     title = "Game Pool :video_game:",
     description = data_manager.get_list_string(),
     color = discord.Color.blue()
   )
+  
   if len(data_manager.get_list()) == 0:
     embed.set_thumbnail(url = "https://c.tenor.com/qx2ywkzWiV0AAAAd/marc-rebillet-rebillet.gif")
   await ctx.send(embed=embed)
@@ -201,9 +209,9 @@ async def modify(ctx):
           custom_id = "cure_button"
         ),
         Button(
-          label = "Cancel",
+          label = "Done",
           style = 2,
-          custom_id = "cancel_button"
+          custom_id = "done_button"
         )
       ]
     ],
@@ -275,9 +283,9 @@ def construct_updated_components(status : int):
         custom_id = "remove_button"
       ),
       Button(
-        label = "Cancel",
+        label = "Done",
         style = 2,
-        custom_id = "cancel_button"
+        custom_id = "done_button"
       )
     ]
   ]
