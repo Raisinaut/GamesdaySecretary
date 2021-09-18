@@ -2,7 +2,6 @@ import os
 import discord
 import random
 import data_manager
-from replit import db
 from keep_alive import keep_alive
 from discord_components import ComponentsBot, Button, Select, SelectOption, ButtonStyle
 
@@ -39,6 +38,9 @@ async def on_button_click(interaction):
   global modify_message_id
   last_modify_msg = await interaction.channel.fetch_message(modify_message_id)
   btn = interaction.custom_id
+
+  # Do not immediately respond
+  await interaction.respond(type = 6)
   
   if btn == "cure_button":
     await interaction.respond(content = "Hm... That didn't work. Try pressing harder next time")
@@ -54,20 +56,19 @@ async def on_button_click(interaction):
     print(f"Modified {selected_game}")
     if btn == "played_button":
       if data_manager.change_played_status(selected_game, True):
-        await interaction.respond(content = "I've marked " + selected_game + " as played.")
+        await interaction.channel.send(content = "I've marked " + selected_game + " as played.")
       else:
         await interaction.respond(content = "That game is no longer in the pool.")
 
     if btn == "unplayed_button":
       if data_manager.change_played_status(selected_game, False):
-        await interaction.respond(content = "I marked " + selected_game + " as unplayed.")
+        await interaction.channel.send(content = "I marked " + selected_game + " as unplayed.")
       else:
         await interaction.respond(content = "That game is no longer in the pool.")
 
     if btn == "remove_button":
       if data_manager.remove_game(selected_game):
         await interaction.channel.send(content = "I've removed " + selected_game + " from the game pool.")
-        # show updated pool
       else:
         await interaction.respond(content = "That game was already deleted.")
     
@@ -129,8 +130,10 @@ async def hello(ctx):
 async def add(ctx):
   title = ctx.message.content.split("!add ",1)[1]
   if not title.isspace():
-    data_manager.add_game(title)
-    await ctx.channel.send(f"I've added {title} to the game pool.")
+    # if unique
+    if data_manager.add_game(title) == True:
+      await ctx.channel.send(f"I've added {title} to the game pool.")
+    else: await ctx.channel.send(f"{title} is already in the pool.")
   else:
     await ctx.channel.send("Um, [spaces] isn't a game.")
 

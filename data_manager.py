@@ -10,18 +10,26 @@ time.tzset()
 
 key = "games" # name of used database 
 
-
+  
 # Adds a game to the "games" key
 # If the key doesn't exist, one is created
 def add_game(title):
-  newGame = game(title, False, None)        # create game object
-  jsonStr = json.dumps(newGame.__dict__)    # convert to json
-  if key in db.keys():                        # if database exists
-    games = db[key]                           # read database
-    games.insert(0, jsonStr)                  # add game object to list
-    db[key] = games                           # save to database
-  else:
-    db[key] = [jsonStr]        # create database with object
+  unique = True
+
+  for i in db[key]:
+    existing_title = json.loads(i)['title']
+    if title.lower() == existing_title.lower():
+      unique = False
+      break
+      
+  if unique:
+    newGame = game(title, False, None)        # create game object
+    jsonStr = json.dumps(newGame.__dict__)    # convert to json
+    if key in db.keys():                        # if database exists
+      games = db[key]                           # read database
+      games.insert(0, jsonStr)                  # add game object to list
+      db[key] = games                           # save to database
+  return unique
 
 # Returns the index of a given title, if found
 def get_index(title):
