@@ -1,6 +1,6 @@
 import json
 import os
-import datetime, time
+import datetime, time, sched
 from replit import db
 from game import game
 
@@ -10,7 +10,6 @@ time.tzset()
 
 key = "games" # name of used database 
 
-  
 # Adds a game to the "games" key
 # If the key doesn't exist, one is created
 def add_game(title):
@@ -126,7 +125,19 @@ def get_date():
 
 # Returns number of weeks since the first week
 def get_current_week():
-  start = datetime.date(2021, 8, 25)
-  today = datetime.date.today()
+  start = datetime.datetime(2021, 8, 25, 19)
+  today = datetime.datetime.today()
   delta = (today - start).days
   return int(delta / 7)
+
+# Returns the scheduled meeting day and time
+def get_schedule_string():
+  # open settings file
+  f = open("settings.json")
+  data = json.load(f)
+  f.close()
+
+  d = data['schedule']['day']
+  t = data['schedule']['time']
+
+  return f"{d}s at {t}"

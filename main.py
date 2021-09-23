@@ -5,22 +5,14 @@ import data_manager
 from keep_alive import keep_alive
 from discord_components import ComponentsBot, Button, Select, SelectOption, ButtonStyle
 
-selected_game     = None # used when modifying a game from selection menu
-selected_status   = None # used when editing the last modify message
+selected_game     = None # saved while modifying a game from selection menu
+selected_status   = None # saved while editing the last modify message
 modify_message_id = None # used to find modify message
 
 token = os.environ['TOKEN']
 bot = ComponentsBot(command_prefix = "!")
 
 greetings = ["Hey there", "Greetings", "Konnichiwa", "What's up", "Hello", "Hey", "Hi"]
-help_message = """Commands:
-!hello, !hi, !hey ------- Simple greeting
-!add [game] --------- Add a game to the pool
-!modify --------------- Remove a game or change its played status 
-!remind -------------- Show this week's game
-!list ------------------- Display all games in the pool"""
-
-
 
 ########################################################################
 ########################## B O T   E V E N T S #########################
@@ -124,7 +116,7 @@ async def help(ctx):
   h_embed.add_field(name = "modify", value = "Delete a game or change its played status.", inline = False)
   h_embed.add_field(name = "list", value = "Display all games, played and unplayed.", inline = False)
   h_embed.add_field(name = "remind", value = "Check what this week's game is.", inline = False)
-  #h_embed.add_field(name = "set [game]", value = "[TEMPORARY] Set this week's game.", inline = False)
+  h_embed.add_field(name = "set", value = "Randomly set this week's game.", inline = False)
   await ctx.channel.send(embed = h_embed)
 
 @bot.command()
@@ -146,11 +138,14 @@ async def add(ctx):
 
 @bot.command()
 async def remind(ctx):
+  g = data_manager.get_weekly_game()
+  s = data_manager.get_schedule_string()
   embed = discord.Embed(
-    title = "Week {}".format(data_manager.get_current_week()),
-    description = data_manager.get_weekly_game(),
-    color = discord.Color.blue()
+    title = "Week {}".format(data_manager.get_current_week()), 
+    color = discord.Color.green()
   )
+  embed.add_field(name = "Game: ",    value = f"***{g}***", inline = False)
+  embed.add_field(name = "Meeting: ", value = f"**{s}**",   inline = False)
   await ctx.send(embed=embed)
 
 @bot.command()
@@ -160,16 +155,28 @@ async def list(ctx):
     description = data_manager.get_list_string(),
     color = discord.Color.blue()
   )
-  
   if len(data_manager.get_list()) == 0:
     embed.set_thumbnail(url = "https://c.tenor.com/qx2ywkzWiV0AAAAd/marc-rebillet-rebillet.gif")
   await ctx.send(embed=embed)
 
 @bot.command()
 async def set(ctx):
-  title = ctx.message.content.split("!set ",1)[1]
-  data_manager.set_weekly_game(title)
-  await ctx.channel.send("This week's game set to {}".format(title))
+  # retrive all unplayed games
+  titles = data_manager.get_list()[0]
+  if len(titles) > 0:
+    random_game = random.choice(titles)
+    data_manager.set_weekly_game(random_game)
+    week_number = data_manager.get_current_week()
+    # prepare embed
+    embed = discord.Embed(
+      title = "Randomly chose",
+      description = f"***{random_game}*** for **Week {week_number}**",
+      color = discord.Color.purple()
+    )
+    await ctx.channel.send(embed = embed)
+    #await ctx.channel.send("**This week's game has been set to** ***{}***".format(random_game))
+  else:
+    await ctx.channel.send("There were no unplayed games to choose from.")
 
 @bot.command()
 async def modify(ctx):
@@ -203,11 +210,11 @@ async def modify(ctx):
         custom_id = "status_select"
       ),
       [
-        Button(
-          label = "Cure cancer",
-          style = 3,
-          custom_id = "cure_button"
-        ),
+        #Button(
+        #  label = "Cure cancer",
+        #  style = 3,
+        #  custom_id = "cure_button"
+        #),
         Button(
           label = "Done",
           style = 2,
