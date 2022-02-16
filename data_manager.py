@@ -123,12 +123,13 @@ def get_date():
   t = datetime.datetime.now()
   return t.strftime("%a, %x")
 
-# Returns number of weeks since the first week
+# Returns games discussed since first week
 def get_current_week():
-  start = datetime.datetime(2021, 8, 25, 19)
-  today = datetime.datetime.today()
-  delta = (today - start).days
-  return int(delta / 7)
+  week_num = len(get_list()[1])
+  # subtract 1 if the current game is not new
+  if get_weekly_game()["played" == True]:
+    week_num -= 1
+  return week_num
 
 # Returns the scheduled meeting day and time
 def get_schedule_string():
